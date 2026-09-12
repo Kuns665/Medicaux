@@ -2,33 +2,74 @@ name: CI/CD - Rendez-vous Médicaux
 
 on:
   push:
-    branches: [ "main", "develop" ]
+    branches:
+      - main
+
   pull_request:
-    branches: [ "main" ]
+    branches:
+      - main
 
 jobs:
-  build-and-test:
+
+  # ==============================
+  # CI : CONTINUOUS INTEGRATION
+  # ==============================
+  ci:
+    name: CI - Build and Test
     runs-on: ubuntu-latest
 
     steps:
-      - name: Récupérer le code
+
+      - name: Checkout du code
         uses: actions/checkout@v5
 
-      - name: Installer Java
+      - name: Configuration de Java 21
         uses: actions/setup-java@v5
         with:
-          distribution: temurin
           java-version: '21'
-          cache: maven
+          distribution: 'temurin'
+          cache: 'maven'
 
-      - name: Tester
+      - name: Exécuter les tests
         run: mvn clean test
 
-      - name: Construire le JAR
+      - name: Compiler et créer le JAR
         run: mvn package -DskipTests
 
-      - name: Sauvegarder l'artefact
+      - name: Upload du JAR
         uses: actions/upload-artifact@v6
         with:
           name: application-jar
           path: target/*.jar
+
+
+  # ==============================
+  # CD : CONTINUOUS DELIVERY
+  # ==============================
+  cd:
+    name: CD - Delivery
+    needs: ci
+    runs-on: ubuntu-latest
+
+    # Le CD est exécuté seulement après
+    # la réussite complète du CI
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+
+      - name: Télécharger le JAR créé par CI
+        uses: actions/download-artifact@v7
+        with:
+          name: application-jar
+          path: deployment
+
+      - name: Vérifier le livrable
+        run: |
+          echo "Application validée par le pipeline CI"
+          echo "Livrable prêt pour le déploiement"
+          ls -R deployment
+
+      - name: Préparer la livraison
+        run: |
+          echo "Continuous Delivery terminée avec succès"
+          echo "Le fichier JAR est prêt à être déployé"
